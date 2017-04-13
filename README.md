@@ -1,0 +1,74 @@
+---
+title: "Phonemic regex with ELAN"
+author: "Niko Partanen"
+date: "4/13/2017"
+output: html_document
+bibliography: ~/langtech/art/FReiburg/bibtex/FRibliography.bib
+---
+
+
+
+Idea of this investigation is find an ideal way to apply a regular expression pattern into an ELAN file and generate a new tier with content already preprocessed to the level wanted for further analysis, which would often be phonetic in this case. With morphology and syntax it should usually be satisfactory and easier to annotate the search results in some other environment than ELAN itself. I think one relatively frequent situation is that there are some tokens on transcription tiers which would desiderably be time aligned, but the time alignation is not needed for all of the tokens.
+
+I set this up in a preliminary manner for my [SLE2016 presentation](https://github.com/nikopartanen/izva_sibilants/blob/master/sle2016/sle2016partanen.pdf), but I have now tried to optimize this to work in wider number of situations. I have also used R as the programming language, but naturally this can be written in any language, since the logic is fairly straighforward. I have lots of R functions ready to interact with ELAN files in different ways, so this was also good reason to work on that. I have marked into list below on bold all the work phases where someone has to do something, rest computer can take care of.
+
+- **Come up with a regular expression that locates the wanted elements**
+- For each matching word token, create an annotation and new tier of the type `included_in`
+- Populate that tier with approximate locations of the word tokens
+    - In principle one could use here much more complex methods too, everything from string length counting to voice recognition or machine learning
+    - Anyway, before populating that tier one should probably do something to transliterate the string into phonemic representation from the orthography
+    - **Every recognized instance should be manually verified**
+
+I do think it is necessary to go file through manually and annotate the wanted phonetic properties. Of course also here there is some space for automatization, but on the other hand this is the point where the linguistic expertise has time to kick in once again. Often with phonetic variation we talking about very nuanced phenomena which demands proper training and knowledge on topic. I think it is very essential that we as researchers spend the time to familiarize ourselves with the data we have at hand, and this is particularly doable if we can automatize tedious and annoying parts of the workflow, and concentrate into those questions which demand the expert knowledge we have.
+
+## Background
+
+So in [IKDP project](https://langdoc.github.io/IKDP/) we were using transcription system that is close to Komi orthography. It deviates slightly from it, but in ways which are similar to other transcriptions used in Komi text collections and dialect dictionaries. It is essentially phonemic, with small added complexity from the conventions of Cyrillic writing system.
+
+There are many reasons why the transcription system should be similar to orthography, and some of the reasons were already discussed in our recent paper [@gerstenbergerEtAl2016a]. However, I think it is always important to be able to demonstrate that the orthographic transcription system selected has underlying all phonemic distinctions, since the data will have primarily different uses in linguistic research. One of the best ways, in my opinion, is to transliterate the text automatically into other more phonemic system.
+
+This has added benefit that writing regular expressions becomes easier. Sometime I have searched in ELAN files all tokens that do not contain sibilants, and the result is something like this:
+
+    ^((?!зь)(?!зё)(?!зя)(?!зю)(?!зи)(?!зе)(?!сь)(?!сё)(?!ся)(?!сю)(?!си)(?!се)(?!Зь)(?!Зё)(?!Зя)(?!Зю)(?!Зи)(?!Зе)(?!Сь)(?!Сё)(?!Ся)(?!Сю)(?!Си)(?!Се)(?!тс)(?!ст)(?!Ст)(?!щ)(?!Щ).)*$
+
+This works, but it isn't particularly readable. Or writable. So on purely phonemic representation without overhead from the orthography we could search simply:
+
+    ^((?!ɕ|ʑ).)*$
+
+Or something like this, basically we would only need to define the phonemes we are interested about. If it is not possible to transliterate the used transcription system in monolingual text into phonemic representation, then there probably are systematic problems in how the phonemic distinctions are marked, and the system should be revised.
+
+Transliteration is kind of task which I hate in many ways, since it is so easy to do that everyone always implements it again and again, but still it is so complex that there should be just one good way to do it. I wrote this function some years ago I think, but I put it now into this package too as it is kind of essential in the task I'm doing here.
+
+
+```r
+library(elanphontier)
+transliterate('менам таенэ ӧні пӧрысьджык кӧбыланас мунісныс яге, тоже зятьлы сеті, ӧні керка вылэ лес лэччедлэ да.',
+              model = 'ikdp2ipa.csv')
+```
+
+```
+## [1] "menam tajene ənі pərɨɕʤɨk kəbɨlanas munіsnɨs jage, toʒe ʑaclɨ ɕetі, ənі kerka vɨle ʎes leʨːеdle da."
+```
+
+The function is written in a way that interacts well with `tidyverse` in R.
+
+
+```r
+library(tidyverse)
+library(FRelan)
+library(elanphontier)
+
+FRelan::read_eaf('kpv_izva20140323-2horse_farm-b.eaf') %>% 
+          dplyr::mutate(ipa = elanphontier::transliterate(tolower(utterance), model = 'ikdp2ipa.csv')) %>% 
+  dplyr::distinct(utterance, ipa) %>% 
+  dplyr::slice(7:8) %>% knitr::kable()
+```
+
+
+
+|utterance                              |ipa                                    |
+|:--------------------------------------|:--------------------------------------|
+|Соревнование , мыйнэ ,                 |sorevnovaɲiе , mɨjne ,                 |
+|быд соревнование вылын участвуйта да . |bɨd sorevnovaɲiе vɨlɨn uʨastvujta da . |
+      
+## References

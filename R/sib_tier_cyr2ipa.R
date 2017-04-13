@@ -26,21 +26,41 @@ sib_tier_cyr2ipa <- function(search_pattern = '(ɕ|ʑ)', eaf_file = 'kpv_izva201
           dplyr::mutate(token_start = token_position * token_length) %>%
           dplyr::mutate(token_end = (token_position + 1) * token_length)
 
-          eaf_xml <- xml2::read_xml(eaf_file)
-
           # This downloads from GitHub Wiki the tier definition
 
-          tibble::tibble(lines = readr::read_lines('https://raw.githubusercontent.com/wiki/langdoc/FRechdoc/Individual-tiers.md')) %>%
+          tier_info <- tibble::tibble(lines = readr::read_lines('https://raw.githubusercontent.com/wiki/langdoc/FRechdoc/Individual-tiers.md')) %>%
             dplyr::filter(stringr::str_detect(lines, '^    ')) %>% tidyr::separate(lines, into = c('field', 'value'), sep = ': ') %>%
             dplyr::filter(! is.na(value)) %>% t() %>% tibble::as_tibble()
+
+          names(tier_info) <- as.character(stringr::str_trim(tier_info[1,]))
+          tier_info <- tier_info[-1,]
+
+          tier_info <- tier_info %>% dplyr::filter(study == study)
 
           # This tests whether linguistic type with wanted name already exists
 
           if (eaf_xml %>% xml2::xml_find_all(paste0('//LINGUISTIC_TYPE[@LINGUISTIC_TYPE_ID=\'', target_type,'T\']')) %>% length == 0){
 
+                        eaf_xml %>% xml2::xml_find_first('//LINGUISTIC_TYPE') %>%
+                            xml2::xml_add_sibling('LINGUISTIC_TYPE',
+                                  CONSTRAINTS=tier_info$constraints,
+                                  GRAPHIC_REFERENCES='false',
+                                  LINGUISTIC_TYPE_ID = tier_info$type_name,
+                                  TIME_ALIGNABLE = tier_info$time_alignable)
           } else {
-            paste('Linguistic type with name', target_type, 'exists already, type not added')
+
+                        eaf_xml %>% xml2::xml_find_first(paste0('//LINGUISTIC_TYPE[@LINGUISTIC_TYPE_ID=\'', target_type,'T\']')) %>%
+                            xml2::xml_replace('LINGUISTIC_TYPE',
+                                  CONSTRAINTS=tier_info$constraints,
+                                  GRAPHIC_REFERENCES='false',
+                                  LINGUISTIC_TYPE_ID = tier_info$type_name,
+                                  TIME_ALIGNABLE = tier_info$time_alignable)
           }
+
+          eaf_xml
+
+          ## TODO: add timeslots
+          ##       add tiers
 
         content <- dplyr::data_frame(
                 content = eaf_xml %>%

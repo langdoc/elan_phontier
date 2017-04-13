@@ -8,13 +8,11 @@
 #' @examples
 #' sib_tier_cyr2ipa(eaf_file = "test.eaf", participant = "JAI-M-1939", linguistic_type = "sib")
 
-sib_tier_cyr2ipa <- function(search_pattern = '(ɕ|ʑ)', eaf_file = 'kpv_izva20140323-2horse_farm-b-test.eaf', participant = 'AXH-M-1979', linguistic_type = 'wordT', target_type = 'sib'){
+sib_tier_cyr2ipa <- function(search_pattern = '(ɕ|ʑ)', eaf_file = 'kpv_izva20140323-2horse_farm-b-test.eaf', participant = 'AXH-M-1979', linguistic_type = 'wordT', target_type = 'sib', study = 'izva_sibilants'){
 
         `%>%` <- dplyr::`%>%`
 
-        eaf_xml <- xml2::read_xml(eaf_file)
-
-        FRelan::read_eaf(eaf_file) %>%
+        elan_hits <- FRelan::read_eaf(eaf_file) %>%
           dplyr::filter(participant == participant) %>%
           dplyr::mutate(ipa = elanphontier::transliterate(token, model = 'ikdp2ipa.csv')) %>%
           dplyr::group_by(reference) %>%
@@ -26,7 +24,23 @@ sib_tier_cyr2ipa <- function(search_pattern = '(ɕ|ʑ)', eaf_file = 'kpv_izva201
           dplyr::select(ipa, token_position, token_sum, utterance_length) %>%
           dplyr::mutate(token_length = utterance_length / token_sum) %>% # more could happen here
           dplyr::mutate(token_start = token_position * token_length) %>%
-          dplyr::mutate(token_end = (token_position + 1) * token_length) %>%
+          dplyr::mutate(token_end = (token_position + 1) * token_length)
+
+          eaf_xml <- xml2::read_xml(eaf_file)
+
+          # This downloads from GitHub Wiki the tier definition
+
+          tibble::tibble(lines = readr::read_lines('https://raw.githubusercontent.com/wiki/langdoc/FRechdoc/Individual-tiers.md')) %>%
+            dplyr::filter(stringr::str_detect(lines, '^    ')) %>% tidyr::separate(lines, into = c('field', 'value'), sep = ': ') %>%
+            dplyr::filter(! is.na(value)) %>% t() %>% tibble::as_tibble()
+
+          # This tests whether linguistic type with wanted name already exists
+
+          if (eaf_xml %>% xml2::xml_find_all(paste0('//LINGUISTIC_TYPE[@LINGUISTIC_TYPE_ID=\'', target_type,'T\']')) %>% length == 0){
+
+          } else {
+            paste('Linguistic type with name', target_type, 'exists already, type not added')
+          }
 
         content <- dplyr::data_frame(
                 content = eaf_xml %>%

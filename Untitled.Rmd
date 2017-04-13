@@ -1,0 +1,36 @@
+---
+title: "Untitled"
+author: "Niko Partanen"
+date: "4/13/2017"
+output: html_document
+bibliography: ~/langtech/art/FReiburg/bibtex/FRibliography.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 
+
+So in [IKDP project](https://langdoc.github.io/IKDP/) we were using transcription system that is close to Komi orthography. It deviates slightly from it, but in ways which are similar to other transcriptions used in Komi text collections and dialect dictionaries. It is essentially phonemic, with small added complexity from the conventions of Cyrillic writing system.
+
+There are many reasons why the transcription system should be similar to orthography, and some of the reasons were already discussed in our recent paper [@gerstenbergerEtAl2016a]. However, I think it is always important to be able to demonstrate that the orthographic transcription system selected has underlying all phonemic distinctions, since the data will have primarily different uses in linguistic research. One of the best ways, in my opinion, is to transliterate the text automatically into other more phonemic system.
+
+This has added benefit that writing regular expressions becomes easier. Sometime I have searched in ELAN files all tokens that do not contain sibilants, and the result is something like this:
+
+    ^((?!зь)(?!зё)(?!зя)(?!зю)(?!зи)(?!зе)(?!сь)(?!сё)(?!ся)(?!сю)(?!си)(?!се)(?!Зь)(?!Зё)(?!Зя)(?!Зю)(?!Зи)(?!Зе)(?!Сь)(?!Сё)(?!Ся)(?!Сю)(?!Си)(?!Се)(?!тс)(?!ст)(?!Ст)(?!щ)(?!Щ).)*$
+
+This works, but it isn't particularly readable. Or writable. So on purely phonemic representation without overhead from the orthography we could search simply:
+
+    ^((?!ɕ|ʑ).)*$
+
+Or something like this, basically we would need to define the phonemes we are interested about.
+
+Transliteration is kind of task which I hate in many ways, since it is so easy to do that everyone always implements it again and again, but still it is so complex that there should be just one good way to do it. I wrote this function some years ago I think, but I put it now into this package too as it is kind of essential in the task I'm doing here.
+
+```{r}
+library(elanphontier)
+transliterate('менам таенэ ӧні пӧрысьджык кӧбыланас мунісныс яге, тоже зятьлы сеті, ӧні керка вылэ лес лэччедлэ да.',
+              model = 'ikdp2ipa.csv')
+```
+

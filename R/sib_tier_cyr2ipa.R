@@ -8,16 +8,27 @@
 #' @examples
 #' sib_tier_cyr2ipa(eaf_file = "test.eaf", participant = "JAI-M-1939", linguistic_type = "sib")
 
-sib_tier_cyr2ipa <- function(eaf_file = "/Volumes/langdoc/langs/kpv/kpv_izva20140404IgusevJA/kpv_izva20140404IgusevJA.eaf", participant = "JAI-M-1939", linguistic_type = "sib"){
-
-        library(plyr)
-        library(dplyr)
+sib_tier_cyr2ipa <- function(search_pattern = '(ɕ|ʑ)', eaf_file = 'kpv_izva20140323-2horse_farm-b-test.eaf', participant = 'AXH-M-1979', linguistic_type = 'wordT', target_type = 'sib'){
 
         `%>%` <- dplyr::`%>%`
 
         eaf_xml <- xml2::read_xml(eaf_file)
 
-        dplyr::data_frame(
+        FRelan::read_eaf(eaf_file) %>%
+          dplyr::filter(participant == participant) %>%
+          dplyr::mutate(ipa = elanphontier::transliterate(token, model = 'ikdp2ipa.csv')) %>%
+          dplyr::group_by(reference) %>%
+          dplyr::mutate(token_position = 1:n()) %>%
+          dplyr::mutate(token_sum = n()) %>%
+          dplyr::ungroup() %>%
+          dplyr::filter(stringr::str_detect(ipa, search_pattern)) %>%
+          dplyr::mutate(utterance_length = time_end - time_start) %>%
+          dplyr::select(ipa, token_position, token_sum, utterance_length) %>%
+          dplyr::mutate(token_length = utterance_length / token_sum) %>% # more could happen here
+          dplyr::mutate(token_start = token_position * token_length) %>%
+          dplyr::mutate(token_end = (token_position + 1) * token_length) %>%
+
+        content <- dplyr::data_frame(
                 content = eaf_xml %>%
                         xml2::xml_find_all(
                                 paste0("//TIER[@LINGUISTIC_TYPE_REF='", linguistic_type, "' and @PARTICIPANT='",
@@ -56,7 +67,7 @@ sib_tier_cyr2ipa <- function(eaf_file = "/Volumes/langdoc/langs/kpv/kpv_izva2014
                         xml2::xml_find_all(
                                 paste0("//TIER[@LINGUISTIC_TYPE_REF='", linguistic_type, "' and @PARTICIPANT='",
                                        participant,"']/ANNOTATION/*/ANNOTATION_VALUE/../../..")) %>%
-                        xml2::xml_attr("LINGUISTIC_TYPE_REF")) -> content
+                        xml2::xml_attr("LINGUISTIC_TYPE_REF"))
 
 
 #        content %>% mutate(Content = paste0(Content, " / / ", reference, " / 0 / ", current_hash)) -> content
@@ -64,7 +75,7 @@ sib_tier_cyr2ipa <- function(eaf_file = "/Volumes/langdoc/langs/kpv/kpv_izva2014
         # In the data frame content there is now the original content of the tier
         # We replace this with transliterated variant
 
-        content %>% dplyr::mutate(content = paste0(elanphontier::transliterate(tolower(content), "R/ikdp2ipa.csv"), " /  / ")) -> content
+        content %>% dplyr::mutate(content = paste0(elanphontier::transliterate(tolower(content), "ikdp2ipa.csv"), " /  / ")) -> content
 
         tier <- XML::newXMLNode("TIER", attrs = c(DEFAULT_LOCALE = "en",
                                                   LINGUISTIC_TYPE_REF = linguistic_type,

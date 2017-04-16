@@ -126,7 +126,7 @@ sib_tier_cyr2ipa <- function(search_pattern = '(ɕ|ʑ)', eaf_file = 'kpv_izva201
             split(.$annotation_id) %>%
             walk(., ~ add_align_annotation(.x))
 
-          xml2::xml_validate(eaf_xml, read_xml('http://www.mpi.nl/tools/elan/EAFv2.8.xsd'))
+          # xml2::xml_validate(eaf_xml, read_xml('http://www.mpi.nl/tools/elan/EAFv2.8.xsd'))
 
           write_xml(eaf_xml, 'happy_end.eaf')
 

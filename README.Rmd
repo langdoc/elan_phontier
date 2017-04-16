@@ -14,7 +14,7 @@ Idea of this investigation is find an ideal way to apply a regular expression pa
 
 I have now got this to the point that one of the functions in `R` folder down here picks the content of the `word` tier, runs transliteration pattern into it, picks those values which match the regex given in the query, and creates a new tier that has matching values populated. Idea is that those instances would be time aligned and manually corrected. The main problem, and this is a real problem, is that it is not obvious into which annotation on word-tier the IPA version corresponds to! I have to come up with some solution in regard to this.
 
-[Current output](http://i.imgur.com/LbeokCo.png)
+![Current output](http://i.imgur.com/LbeokCo.png)
 
 The next step would also be to use speech recognition tools to match the words into tokens bit more exactly. I have never tested this, but it should work relatively easily.
 

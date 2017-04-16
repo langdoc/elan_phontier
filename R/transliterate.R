@@ -15,7 +15,7 @@ transliterate <- function(data, model){
             stop("Pattern and replacement do not have the same length!")}
           result <- x
           for (i in 1:length(pattern)){
-            result <- gsub(pattern[i], replacement[i], result, ...)}
+            result <- stringi::stri_replace_all(regex = pattern[i], replacement = replacement[i], str = result, ...)}
           result
         }
 

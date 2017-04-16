@@ -8,12 +8,12 @@
 #' @examples
 #' sib_tier_cyr2ipa(eaf_file = "test.eaf", participant = "JAI-M-1939", linguistic_type = "sib")
 
-sib_tier_cyr2ipa <- function(search_pattern = '(ɕ|ʑ)', eaf_file = 'kpv_izva20140323-2horse_farm-b-test.eaf', participant = 'AXH-M-1979', linguistic_type = 'wordT', target_type = 'sib', study = 'izva_sibilants'){
+sib_tier_cyr2ipa <- function(search_pattern = '(ɕ|ʑ)', eaf_file = 'kpv_izva20140323-2horse_farm-b-test.eaf', wanted_participant = 'AXH-M-1979', linguistic_type = 'wordT', target_type = 'sib', study = 'izva_sibilants'){
 
         `%>%` <- dplyr::`%>%`
 
         elan_hits <- FRelan::read_eaf(eaf_file) %>%
-          dplyr::filter(participant == participant) %>%
+          dplyr::filter(participant == wanted_participant) %>%
           dplyr::mutate(ipa = elanphontier::transliterate(token, model = 'ikdp2ipa.csv')) %>%
           dplyr::group_by(reference) %>%
           dplyr::mutate(token_position = 1:n()) %>%

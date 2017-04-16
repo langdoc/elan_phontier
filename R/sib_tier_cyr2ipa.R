@@ -21,10 +21,10 @@ sib_tier_cyr2ipa <- function(search_pattern = '(ɕ|ʑ)', eaf_file = 'kpv_izva201
           dplyr::ungroup() %>%
           dplyr::filter(stringr::str_detect(ipa, search_pattern)) %>%
           dplyr::mutate(utterance_length = time_end - time_start) %>%
-          dplyr::select(ipa, token_position, token_sum, utterance_length) %>%
+#          dplyr::select(ipa, token_position, token_sum, utterance_length) %>%
           dplyr::mutate(token_length = utterance_length / token_sum) %>% # more could happen here
-          dplyr::mutate(token_start = token_position * token_length) %>%
-          dplyr::mutate(token_end = (token_position + 1) * token_length)
+          dplyr::mutate(token_start = ceiling(time_start + (token_position * token_length))) %>% # round up
+          dplyr::mutate(token_end = trunc((time_start + (token_position + 1) * token_length))) # round down
 
           # This downloads from GitHub Wiki the tier definition
 
@@ -38,6 +38,8 @@ sib_tier_cyr2ipa <- function(search_pattern = '(ɕ|ʑ)', eaf_file = 'kpv_izva201
           tier_info <- tier_info %>% dplyr::filter(study == study)
 
           # This tests whether linguistic type with wanted name already exists
+
+          eaf_xml <- xml2::read_xml(eaf_file)
 
           if (eaf_xml %>% xml2::xml_find_all(paste0('//LINGUISTIC_TYPE[@LINGUISTIC_TYPE_ID=\'', target_type,'T\']')) %>% length == 0){
 
@@ -57,110 +59,79 @@ sib_tier_cyr2ipa <- function(search_pattern = '(ɕ|ʑ)', eaf_file = 'kpv_izva201
                                   TIME_ALIGNABLE = tier_info$time_alignable)
           }
 
-          eaf_xml
+          # eaf_xml %>%
+          #   xml_find_all("//TIER[@PARTICIPANT='AXH-M-1980']") %>% xml_set_attr('PARTICIPANT', 'AXH-M-1980')
 
-          ## TODO: add timeslots
-          ##       add tiers
+          # The data frame `elan_hits` contains now tokens, their lengths, start times and end times
+          # It is necessary to add timeslots for those incoming annotations, and each of them also needs
+          # a new annotation id. This kind of annotations do not have a reference annotation on
+          # higher tiers, which causes some additional problems in my opinion, but the connection
+          # can still always be deducted by the time values (child is inside its parent)
 
-        content <- dplyr::data_frame(
-                content = eaf_xml %>%
-                        xml2::xml_find_all(
-                                paste0("//TIER[@LINGUISTIC_TYPE_REF='", linguistic_type, "' and @PARTICIPANT='",
-                                       participant,"']/ANNOTATION/*/ANNOTATION_VALUE")) %>%
-                        xml2::xml_text(),
-                annot_id = eaf_xml %>%
-                        xml2::xml_find_all(paste0("//TIER[@LINGUISTIC_TYPE_REF='", linguistic_type, "' and @PARTICIPANT='",
-                                                  participant,"']/ANNOTATION/*/ANNOTATION_VALUE/..")) %>%
-                        xml2::xml_attr("ANNOTATION_ID"),
-                ref_id = eaf_xml %>%
-                        xml2::xml_find_all(
-                                paste0("//TIER[@LINGUISTIC_TYPE_REF='", linguistic_type, "' and @PARTICIPANT='",
-                                       participant,"']/ANNOTATION/*/ANNOTATION_VALUE/..")) %>%
-                        xml2::xml_attr("ANNOTATION_REF"),
-                ts1 = eaf_xml %>%
-                        xml2::xml_find_all(
-                                paste0("//TIER[@LINGUISTIC_TYPE_REF='", linguistic_type, "' and @PARTICIPANT='",
-                                       participant,"']/ANNOTATION/*/ANNOTATION_VALUE/..")) %>%
-                        xml2::xml_attr("TIME_SLOT_REF1"),
-                ts2 = eaf_xml %>%
-                        xml2::xml_find_all(
-                                paste0("//TIER[@LINGUISTIC_TYPE_REF='", linguistic_type, "' and @PARTICIPANT='",
-                                       participant,"']/ANNOTATION/*/ANNOTATION_VALUE/..")) %>%
-                        xml2::xml_attr("TIME_SLOT_REF2"),
-                participant = eaf_xml %>%
-                        xml2::xml_find_all(
-                                paste0("//TIER[@LINGUISTIC_TYPE_REF='", linguistic_type, "' and @PARTICIPANT='",
-                                       participant,"']/ANNOTATION/*/ANNOTATION_VALUE/../../..")) %>%
-                        xml2::xml_attr("PARTICIPANT"),
-                tier_id = eaf_xml %>%
-                        xml2::xml_find_all(
-                                paste0("//TIER[@LINGUISTIC_TYPE_REF='", linguistic_type, "' and @PARTICIPANT='",
-                                       participant,"']/ANNOTATION/*/ANNOTATION_VALUE/../../..")) %>%
-                        xml2::xml_attr("TIER_ID"),
-                type = eaf_xml %>%
-                        xml2::xml_find_all(
-                                paste0("//TIER[@LINGUISTIC_TYPE_REF='", linguistic_type, "' and @PARTICIPANT='",
-                                       participant,"']/ANNOTATION/*/ANNOTATION_VALUE/../../..")) %>%
-                        xml2::xml_attr("LINGUISTIC_TYPE_REF"))
+          # We also have to grab some new values, mainly max time slot id and max annotation id
 
+          max_ts <- eaf_xml %>% xml_find_all('//TIME_SLOT') %>%
+            xml_attr('TIME_SLOT_ID') %>%
+            str_extract('\\d+') %>%
+            as.numeric %>%
+            max
 
-#        content %>% mutate(Content = paste0(Content, " / / ", reference, " / 0 / ", current_hash)) -> content
+          max_id <- eaf_xml %>% xml_find_all('//ANNOTATION/*') %>%
+            xml_attr('ANNOTATION_ID') %>%
+            str_extract('\\d+') %>%
+            as.numeric %>%
+            max
 
-        # In the data frame content there is now the original content of the tier
-        # We replace this with transliterated variant
+          elan_hits <- elan_hits %>%
+            tidyr::gather(type, time, token_start:token_end) %>%
+            arrange(time) %>%
+            mutate(id = 1:n()) %>%
+            mutate(new_ts = paste0('ts', max_ts + id))
 
-        content %>% dplyr::mutate(content = paste0(elanphontier::transliterate(tolower(content), "ikdp2ipa.csv"), " /  / ")) -> content
+          # here we pick the pointer to the time slot node from the rest
+          # notice that this is a pointer, not the node though
+          # modifying this MODIFIES the whole tree
 
-        tier <- XML::newXMLNode("TIER", attrs = c(DEFAULT_LOCALE = "en",
-                                                  LINGUISTIC_TYPE_REF = linguistic_type,
-                                                  PARENT_REF = paste0("ref@", participant),
-                                                  #                                                  LANG_REF = lang,
-                                                  PARTICIPANT = participant,
-                                                  TIER_ID = paste0("sib@", participant)))
+          ts_node <- eaf_xml %>% xml_find_first('//TIME_ORDER')
 
-        #        This adds annotation element under tier, so it already looks like this:
-        #
-        #        <TIER LINGUISTIC_TYPE_REF="sib" PARENT_REF="ref@JAI-M-1939" PARTICIPANT="JAI-M-1939" TIER_ID="sib@JAI-M-1939">
-        #               <ANNOTATION/>
-        #         </TIER>
+          add_timeslot <- function(data, root = ts_node){
+            xml_add_child(root, 'TIME_SLOT', TIME_SLOT_ID = data$new_ts, TIME_VALUE = data$time)
+          }
 
-        #       Next step is to populate that tier
+          elan_hits %>% split(.$id) %>% walk(., ~ add_timeslot(.x))
 
-        plyr::d_ply(content, .variables = "annot_id", function(x){
-                annotation <- XML::newXMLNode("ANNOTATION", parent = tier)
-                alignable_annotation <- XML::newXMLNode("ALIGNABLE_ANNOTATION",
-                                                        attrs = c(ANNOTATION_ID = x$annot_id,
-                                                                  TIME_SLOT_REF1 = x$ts1,
-                                                                  TIME_SLOT_REF2 = x$ts2),
-                                                        parent = annotation)
-                annotation_value <- XML::newXMLNode("ANNOTATION_VALUE", x$content, parent = alignable_annotation)
-                alignable_annotation
-        })
+          tier_location <- eaf_xml %>% xml_find_first('//TIER')
 
+          tier <- xml_add_sibling(tier_location, 'TIER',
+                                LINGUISTIC_TYPE_REF = tier_info$type_name,
+                                PARENT_REF = paste0(tier_info$parent_prefix, participant),
+                                PARTICIPANT = participant,
+                                TIER_ID = paste0(tier_info$prefix, participant),
+                                .where = 'after')
 
-        doc <- XML::xmlParse(eaf_file)
+          add_align_annotation <- function(data, root = tier){
+            annotation <- xml_add_child(root, 'ANNOTATION')
+              alignable_annotation <- xml_add_child(annotation, 'ALIGNABLE_ANNOTATION',
+                                                    ANNOTATION_ID = data$annotation_id,
+                                                    TIME_SLOT_REF1 = data$ts1,
+                                                    TIME_SLOT_REF2 = data$ts2)
+                xml_add_child(alignable_annotation, 'ANNOTATION_VALUE', data$ipa)
+          }
 
-        # Note: add speaker attribute so that we don't delete too many tiers!
+          elan_hits %>% select(-time, -id) %>%
+            spread(key = type, value = new_ts) %>%
+            mutate(ts1 = token_start,
+                   ts2 = token_end) %>%
+            mutate(annotation_id = paste0('a', max_id + 1:n())) %>%
+            split(.$annotation_id) %>%
+            walk(., ~ add_align_annotation(.x))
 
-        XML::removeNodes(doc[paste0("//TIER[@LINGUISTIC_TYPE_REF='", linguistic_type, "']")])
+          xml2::xml_validate(eaf_xml, read_xml('http://www.mpi.nl/tools/elan/EAFv2.8.xsd'))
 
-        # doc
-        eaf_to_be_written <- XML::getNodeSet(doc, "//ANNOTATION_DOCUMENT")
+          write_xml(eaf_xml, 'happy_end.eaf')
 
-        XML::xmlChildren(eaf_to_be_written[[1]]) <- XML::addChildren(eaf_to_be_written[[1]], tier)
-
-        XML::xmlChildren(eaf_to_be_written[[1]]) <- c(XML::xmlChildren(eaf_to_be_written[[1]]))[c(order(factor(names(eaf_to_be_written[[1]]),
-                                                        levels = c("HEADER",
-                                                                   "TIME_ORDER",
-                                                                   "TIER",
-                                                                   "LINGUISTIC_TYPE",
-                                                                   "LOCALE",
-                                                                   "LANGUAGE",
-                                                                   "CONSTRAINT",
-                                                                   "CONTROLLED_VOCABULARY",
-                                                                   "EXTERNAL_REF"))))]
-
-
-        XML::saveXML(eaf_to_be_written[[1]], eaf_file)
+          ## TODO:
+          ##
+          ##       update last used value
 
 }

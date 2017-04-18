@@ -1,6 +1,7 @@
-#' sib_tier_cyr2ipa Function read individual tiers from single ELAN files.
+#' eaf_phontier Function adds a new tier as specified in external parameters
+#' for each token that matches regular expression given as one argument
 #'
-#' This function reads just an individual tier of one ELAN file
+#' This adds a new tier to ELAN file
 #' @param eaf_file This is a path to the file.
 #' @param tier This is the linguistic type of the tier
 #' @keywords ELAN
@@ -8,13 +9,13 @@
 #' @examples
 #' sib_tier_cyr2ipa(eaf_file = "test.eaf", participant = "JAI-M-1939", linguistic_type = "sib")
 
-sib_tier_cyr2ipa <- function(search_pattern = '(ɕ|ʑ)', eaf_file = 'kpv_izva20140323-2horse_farm-b-test.eaf', wanted_participant = 'AXH-M-1979', linguistic_type = 'wordT', target_type = 'sib', study = 'izva_sibilants'){
+sib_tier_cyr2ipa <- function(search_pattern = '(ɕ|ʑ)', eaf_file = 'kpv_izva20140323-2horse_farm-b-test.eaf', wanted_participant = 'AXH-M-1979', linguistic_type = 'wordT', target_type = 'sib', study = 'izva_sibilants', translit_model = 'ikdp2ipa.csv'){
 
         `%>%` <- dplyr::`%>%`
 
         elan_hits <- FRelan::read_eaf(eaf_file) %>%
           dplyr::filter(participant == wanted_participant) %>%
-          dplyr::mutate(ipa = elanphontier::transliterate(token, model = 'ikdp2ipa.csv')) %>%
+          dplyr::mutate(ipa = elanphontier::transliterate(token, model = translit_model)) %>%
           dplyr::group_by(reference) %>%
           dplyr::mutate(token_position = 1:n()) %>%
           dplyr::mutate(token_sum = n()) %>%
@@ -128,7 +129,7 @@ sib_tier_cyr2ipa <- function(search_pattern = '(ɕ|ʑ)', eaf_file = 'kpv_izva201
 
           # xml2::xml_validate(eaf_xml, read_xml('http://www.mpi.nl/tools/elan/EAFv2.8.xsd'))
 
-          write_xml(eaf_xml, 'happy_end.eaf')
+          write_xml(eaf_xml, eaf_file)
 
           ## TODO:
           ##

@@ -32,8 +32,14 @@ add_phontier <- function(search_pattern = '(ɕ|ʑ)', eaf_file = 'kpv_izva2014032
           # This downloads from GitHub Wiki the tier definition
 
           tier_info <- tibble::tibble(lines = readr::read_lines('https://raw.githubusercontent.com/wiki/langdoc/FRechdoc/Individual-tiers.md')) %>%
-            dplyr::filter(stringr::str_detect(lines, '^    ')) %>% tidyr::separate(lines, into = c('field', 'value'), sep = ': ') %>%
-            dplyr::filter(! is.na(value)) %>% t() %>% tibble::as_tibble()
+            dplyr::filter(stringr::str_detect(lines, '^    ')) %>%
+            tidyr::separate(lines, into = c('field', 'value'), sep = ': ') %>%
+            dplyr::filter(! is.na(value)) %>%
+            group_by(field) %>%
+            mutate(Order = seq_along(field)) %>%
+            split(.$Order) %>%
+            map(~ select(.x, -Order) %>% t())
+            t() %>% tibble::as_tibble()
 
           names(tier_info) <- as.character(stringr::str_trim(tier_info[1,]))
           tier_info <- tier_info[-1,]

@@ -1,15 +1,17 @@
-#' eaf_phontier Function adds a new tier as specified in external parameters
+#' add_phontier Function adds a new tier as specified in external parameters
 #' for each token that matches regular expression given as one argument
 #'
 #' This adds a new tier to ELAN file
 #' @param eaf_file This is a path to the file.
-#' @param tier This is the linguistic type of the tier
-#' @keywords ELAN
+#' @param search_pattern Searched pattern
+#' @param wanted_participant Participant whose tiers are searched
+#' @param study Into which study is the new tier connected to
+#' @keywords ELAN langdoc
 #' @export
 #' @examples
-#' sib_tier_cyr2ipa(eaf_file = "test.eaf", participant = "JAI-M-1939", linguistic_type = "sib")
+#' add_phontier(search_pattern = '(ɕ|ʑ)', eaf_file = 'test.eaf', wanted_participant = 'AXH-M-1979', study = 'izva_sibilants', translit_model = 'ikdp2ipa.csv')
 
-sib_tier_cyr2ipa <- function(search_pattern = '(ɕ|ʑ)', eaf_file = 'kpv_izva20140323-2horse_farm-b-test.eaf', wanted_participant = 'AXH-M-1979', linguistic_type = 'wordT', target_type = 'sib', study = 'izva_sibilants', translit_model = 'ikdp2ipa.csv'){
+add_phontier <- function(search_pattern = '(ɕ|ʑ)', eaf_file = 'kpv_izva20140323-2horse_farm-b-test.eaf', wanted_participant = 'AXH-M-1979', study = 'izva_sibilants', translit_model = 'ikdp2ipa.csv'){
 
         `%>%` <- dplyr::`%>%`
 
